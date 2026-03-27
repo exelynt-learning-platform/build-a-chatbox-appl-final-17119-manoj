@@ -11,9 +11,11 @@ const headers = {
 
 export const sendMessageToAPI = async (message) => {
   const models = [
-    "gryphe/mythomax-l2-13b",   // ✅ most stable free
+    "gryphe/mythomax-l2-13b",        // ✅ most stable free
     "nousresearch/nous-capybara-7b", // ✅ backup
   ];
+
+  const errors = [];
 
   for (let model of models) {
     try {
@@ -26,12 +28,25 @@ export const sendMessageToAPI = async (message) => {
         { headers }
       );
 
-      return response.data.choices[0].message.content;
+      // Check if the API returned a valid response
+      if (response.data?.choices?.[0]?.message?.content) {
+        return response.data.choices[0].message.content;
+      } else {
+        errors.push(`Model ${model} returned an invalid response.`);
+        console.warn(`Invalid response from model: ${model}`, response.data);
+      }
 
     } catch (error) {
-      console.warn(`Model failed: ${model}`);
+      // Collect the error details for logging
+      const errorMsg = error.response
+        ? `HTTP ${error.response.status}: ${error.response.data?.error || error.message}`
+        : error.message;
+      errors.push(`Model ${model} failed: ${errorMsg}`);
+      console.warn(`Model failed: ${model}`, error);
     }
   }
 
-  throw new Error("All free models failed. Try again later.");
+  // After trying all models, throw a clear, user-friendly error
+  const combinedErrorMessage = `All available models failed. Details:\n${errors.join("\n")}`;
+  throw new Error(combinedErrorMessage);
 };
